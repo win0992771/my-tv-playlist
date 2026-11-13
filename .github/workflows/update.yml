@@ -2,14 +2,14 @@ name: Auto Update Playlist
 
 on:
   schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch:
+    - cron: '0 * * * *'   # يعمل تلقائياً كل ساعة
+  workflow_dispatch:      # يسمح لك بتشغيله يدوياً بضغطة زر
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write     # صلاحية تعديل الملفات في المستودع
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,6 +25,8 @@ jobs:
           pip install curl_cffi pycryptodome
 
       - name: Run script to generate playlist
+        env:
+          PROXY_URL: ${{ secrets.PROXY_URL }}   # سيتم تمريره من إعدادات المستودع
         run: python generate_playlist.py
 
       - name: Commit and push updated playlist
