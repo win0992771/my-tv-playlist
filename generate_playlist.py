@@ -1,11 +1,11 @@
 import json
 import base64
 import sys
+import os
 from curl_cffi import requests as curl_requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-# إنشاء الملف فارغاً فوراً
 with open("playlist.m3u8", "w", encoding="utf-8") as f:
     f.write("#EXTM3U\n")
 
@@ -17,20 +17,19 @@ HEADERS = {
 }
 KEY = b"fedcba9876543210"
 
-# ==== بصمة OkHttp Android 10 ====
+# ==== إعدادات البروكسي ====
+# يتم تمريرها من GitHub Secrets أو المتغيرات
+PROXY_URL = os.environ.get("PROXY_URL", "")  # مثال: http://user:pass@ip:port
+PROXY_TYPE = os.environ.get("PROXY_TYPE", "http") # http أو socks5
+
+# ==== بصمة OkHttp ====
 OKHTTP4_ANDROID10_JA3 = "771,4865-4866-4867-49195-49196-52393-49199-49200-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-51-45-43-21,29-23-24,0"
 OKHTTP4_ANDROID10_AKAMAI = "4:16777216|16711681|0|m,p,a,s"
 EXTRA_FP = {
     "tls_signature_algorithms": [
-        "ecdsa_secp256r1_sha256",
-        "rsa_pss_rsae_sha256",
-        "rsa_pkcs1_sha256",
-        "ecdsa_secp384r1_sha384",
-        "rsa_pss_rsae_sha384",
-        "rsa_pkcs1_sha384",
-        "rsa_pss_rsae_sha512",
-        "rsa_pkcs1_sha512",
-        "rsa_pkcs1_sha1",
+        "ecdsa_secp256r1_sha256", "rsa_pss_rsae_sha256", "rsa_pkcs1_sha256",
+        "ecdsa_secp384r1_sha384", "rsa_pss_rsae_sha384", "rsa_pkcs1_sha384",
+        "rsa_pss_rsae_sha512", "rsa_pkcs1_sha512", "rsa_pkcs1_sha1",
     ]
 }
 
@@ -49,16 +48,26 @@ def decrypt_data(encrypted_text):
 
 def api_request(endpoint, payload=None):
     url = f"{BASE_URL}/{endpoint}"
+    
+    # إعداد البروكسي إذا تم تمريره
+    proxies = None
+    if PROXY_URL:
+        proxies = {
+            "http": PROXY_URL,
+            "https": PROXY_URL
+        }
+        print(f"[Proxy] Using: {PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL}")
+    
     try:
-        # هنا نستخدم البصمة المخصصة لـ OkHttp
         r = curl_requests.post(
             url, 
             headers=HEADERS, 
             json=payload or {}, 
-            timeout=20,
+            timeout=30,
             ja3=OKHTTP4_ANDROID10_JA3,
             akamai=OKHTTP4_ANDROID10_AKAMAI,
-            extra_fp=EXTRA_FP
+            extra_fp=EXTRA_FP,
+            proxies=proxies
         )
         print(f"[{endpoint}] Status Code: {r.status_code}")
         print(f"[{endpoint}] Raw Response: {r.text[:200]}") 
@@ -80,7 +89,6 @@ def main():
         sys.exit(0) 
 
     m3u_lines = ["#EXTM3U"]
-    
     for topic in topics_data.get("live_topics", []):
         topic_id = topic.get("id_topic")
         topic_name = topic.get("name_topic", "Unknown")
@@ -102,7 +110,6 @@ def main():
 
             final_url = None
             headers = {}
-
             if "data" in stream_data and "url" in stream_data["data"]:
                 raw_url = stream_data["data"]["url"]
                 decrypted_raw = decrypt_data(raw_url)
