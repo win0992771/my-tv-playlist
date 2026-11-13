@@ -1,11 +1,10 @@
-import requests
 import json
 import base64
 import sys
+from curl_cffi import requests as curl_requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-# إنشاء الملف فارغاً فوراً (حتى لا يغضب GitHub)
 with open("playlist.m3u8", "w", encoding="utf-8") as f:
     f.write("#EXTM3U\n")
 
@@ -27,15 +26,16 @@ def decrypt_data(encrypted_text):
         cipher = AES.new(KEY, AES.MODE_CBC, iv)
         decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
         return decrypted.decode('utf-8')
-    except Exception as e:
+    except Exception:
         return encrypted_text
 
 def api_request(endpoint, payload=None):
     url = f"{BASE_URL}/{endpoint}"
     try:
-        r = requests.post(url, headers=HEADERS, json=payload or {}, timeout=15)
+        # هنا السحر: نستخدم impersonate="chrome" لنتنكر في زي متصفح/هاتف حقيقي
+        r = curl_requests.post(url, headers=HEADERS, json=payload or {}, timeout=20, impersonate="chrome")
         print(f"[{endpoint}] Status Code: {r.status_code}")
-        print(f"[{endpoint}] Raw Response: {r.text[:200]}") # نطبع أول 200 حرف لنرى الرد
+        print(f"[{endpoint}] Raw Response: {r.text[:200]}") 
         
         text = r.text.strip()
         if not text: return None
@@ -50,7 +50,7 @@ def main():
     topics_data = api_request("getliveTopics")
     
     if not topics_data:
-        print("FAILED: Could not get topics data from server. See Raw Response above.")
+        print("FAILED: Still blocked by server.")
         sys.exit(0) 
 
     m3u_lines = ["#EXTM3U"]
