@@ -5,6 +5,7 @@ from curl_cffi import requests as curl_requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
+# إنشاء الملف فارغاً فوراً
 with open("playlist.m3u8", "w", encoding="utf-8") as f:
     f.write("#EXTM3U\n")
 
@@ -15,6 +16,23 @@ HEADERS = {
     "Accept": "application/json"
 }
 KEY = b"fedcba9876543210"
+
+# ==== بصمة OkHttp Android 10 ====
+OKHTTP4_ANDROID10_JA3 = "771,4865-4866-4867-49195-49196-52393-49199-49200-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-51-45-43-21,29-23-24,0"
+OKHTTP4_ANDROID10_AKAMAI = "4:16777216|16711681|0|m,p,a,s"
+EXTRA_FP = {
+    "tls_signature_algorithms": [
+        "ecdsa_secp256r1_sha256",
+        "rsa_pss_rsae_sha256",
+        "rsa_pkcs1_sha256",
+        "ecdsa_secp384r1_sha384",
+        "rsa_pss_rsae_sha384",
+        "rsa_pkcs1_sha384",
+        "rsa_pss_rsae_sha512",
+        "rsa_pkcs1_sha512",
+        "rsa_pkcs1_sha1",
+    ]
+}
 
 def decrypt_data(encrypted_text):
     if not encrypted_text or ":" not in encrypted_text:
@@ -32,8 +50,16 @@ def decrypt_data(encrypted_text):
 def api_request(endpoint, payload=None):
     url = f"{BASE_URL}/{endpoint}"
     try:
-        # هنا السحر: نستخدم impersonate="chrome" لنتنكر في زي متصفح/هاتف حقيقي
-        r = curl_requests.post(url, headers=HEADERS, json=payload or {}, timeout=20, impersonate="chrome")
+        # هنا نستخدم البصمة المخصصة لـ OkHttp
+        r = curl_requests.post(
+            url, 
+            headers=HEADERS, 
+            json=payload or {}, 
+            timeout=20,
+            ja3=OKHTTP4_ANDROID10_JA3,
+            akamai=OKHTTP4_ANDROID10_AKAMAI,
+            extra_fp=EXTRA_FP
+        )
         print(f"[{endpoint}] Status Code: {r.status_code}")
         print(f"[{endpoint}] Raw Response: {r.text[:200]}") 
         
